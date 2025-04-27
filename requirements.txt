@@ -1,0 +1,4 @@
+requests
+schedule
+tradingview_ta
+flask
