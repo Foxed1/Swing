@@ -1,8 +1,7 @@
 # main.py
-
 import time
 import schedule
-from config import SYMBOLS, ROUND_TIME_MINUTES, FOLLOW_UP_MINUTES
+from config import *
 from analyzer import analyze_symbol
 from signals import check_entry_conditions, build_trade_message
 from telegram_bot import send_message
@@ -10,46 +9,62 @@ from trades_manager import save_trade, load_trades, remove_trade
 from keep_alive import keep_alive
 
 def run_analysis():
-    open_symbols = [t["symbol"] for t in load_trades()]
+    open_trades = {t["symbol"]: t for t in load_trades()}
+    
     for symbol in SYMBOLS:
-        if symbol in open_symbols:
-            print(f"⏩ تم تخطي {symbol} لأن فيه صفقة مفتوحة بالفعل.")
+        if symbol in open_trades:
             continue
-        print(f"Analyzing {symbol}...")
+            
         data = analyze_symbol(symbol)
-        if check_entry_conditions(data):
-            price = data["price"]
-            target_price = round(price * 1.05, 4)
-            stop_price = round(price * 0.97, 4)
-            save_trade(symbol, price, target_price, stop_price)
-            message = build_trade_message(symbol, data, price, target_price, stop_price)
+        if not data:
+            continue
+            
+        if check_entry_conditions(data, symbol):
+            entry_price = data["price"]
+            targets = [
+                round(entry_price * 1.02, 4),  # هدف 1: +2%
+                round(entry_price * 1.04, 4)   # هدف 2: +4%
+            ]
+            stop_loss = round(entry_price * 0.98, 4)  # وقف -2%
+            
+            save_trade(symbol, entry_price, targets, stop_loss)
+            message = build_trade_message(symbol, data, entry_price, targets)
             send_message(message)
         time.sleep(1)
 
 def follow_up_trades():
-    trades = load_trades()
-    for trade in trades:
-        symbol = trade["symbol"]
-        data = analyze_symbol(symbol)
+    for trade in load_trades():
+        data = analyze_symbol(trade["symbol"])
         if not data:
             continue
-        price = data["price"]
-        if price >= trade["target_price"]:
-            send_message(f"✅ الصفقة على {symbol} وصلت للهدف!")
+            
+        current_price = data["price"]
+        symbol = trade["symbol"]
+        
+        # جني الأرباح على مراحل
+        if current_price >= trade["targets"][1]:
+            send_message(f"🎯 {symbol} - إغلاق كامل عند {current_price:.4f}")
             remove_trade(symbol)
-        elif price <= trade["stop_price"]:
-            send_message(f"❌ الصفقة على {symbol} ضربت الستوب!")
+        elif current_price >= trade["targets"][0] and not trade.get("partial_taken"):
+            send_message(f"✅ {symbol} - جني 50% أرباح عند {current_price:.4f}")
+            trade["partial_taken"] = True
+            save_trade(symbol, trade["entry_price"], trade["targets"], trade["stop_loss"])
+        elif current_price <= trade["stop_loss"]:
+            send_message(f"❌ {symbol} - إيقاف خسارة عند {current_price:.4f}")
             remove_trade(symbol)
         time.sleep(1)
 
-keep_alive()
-
-schedule.every(ROUND_TIME_MINUTES).minutes.do(run_analysis)
-schedule.every(FOLLOW_UP_MINUTES).minutes.do(follow_up_trades)
-
 if __name__ == "__main__":
-    print("✅ البوت Swing_Bot_v2 Final_v2 يعمل الآن...")
+    keep_alive()
+    print("🟢 البوت يعمل بنموذج ذكي لكل عملة!")
+    
+    # تشغيل مباشر بدون تأخير أولي
     run_analysis()
+    follow_up_trades()
+    
+    schedule.every(ROUND_TIME_MINUTES).minutes.do(run_analysis)
+    schedule.every(FOLLOW_UP_MINUTES).minutes.do(follow_up_trades)
+    
     while True:
         schedule.run_pending()
         time.sleep(1)
