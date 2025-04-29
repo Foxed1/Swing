@@ -2,7 +2,7 @@ import time
 import schedule
 import threading
 from datetime import datetime
-from config import SYMBOLS, ROUND_TIME_MINUTES, FOLLOW_UP_MINUTES
+from config import SYMBOLS
 from analyzer import analyze_symbol
 from signals import check_entry_conditions, build_trade_message
 from telegram_bot import send_message
@@ -10,7 +10,7 @@ from trades_manager import save_trade, load_trades, remove_trade, clean_old_trad
 from keep_alive import keep_alive
 
 def run_analysis():
-    # تنظيف الصفقات القديمة قبل التحليل
+    print(f"🚀 بدء جولة تحليل العملات في {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     trades = load_trades()
     trades = clean_old_trades(trades)
     open_symbols = [t["symbol"] for t in trades]
@@ -20,7 +20,7 @@ def run_analysis():
             print(f"⏩ تم تخطي {symbol} لأن فيه صفقة مفتوحة بالفعل.")
             continue
 
-        print(f"Analyzing {symbol}...")
+        print(f"🔎 Analyzing {symbol}...")
         data = analyze_symbol(symbol)
         if check_entry_conditions(data):
             price = data["price"]
@@ -33,12 +33,31 @@ def run_analysis():
         time.sleep(1)
 
 def follow_up_trades():
+    print(f"🔄 متابعة الصفقات المفتوحة في {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     trades = load_trades()
     for trade in trades:
-        pass  # المتابعة العادية لو عايز تضيف لاحقاً
+        symbol = trade['symbol']
+        entry_price = trade['entry_price']
+        target_price = trade['target_price']
+        stop_price = trade['stop_price']
+
+        # نجيب السعر الحالي
+        data = analyze_symbol(symbol)
+        current_price = data["price"]
+
+        if current_price >= target_price:
+            print(f"✅ تم تحقيق الهدف في صفقة {symbol}! السعر الحالي: {current_price}")
+            send_message(f"✅ صفقة {symbol} وصلت الهدف! السعر الحالي: {current_price}")
+            remove_trade(symbol)
+        elif current_price <= stop_price:
+            print(f"❌ تم ضرب وقف الخسارة في صفقة {symbol}. السعر الحالي: {current_price}")
+            send_message(f"❌ صفقة {symbol} ضربت الستوب! السعر الحالي: {current_price}")
+            remove_trade(symbol)
+        else:
+            print(f"⏳ صفقة {symbol} مازالت مفتوحة. السعر الحالي: {current_price}")
 
 def print_alive_message():
-    print(f"✅ Bot is alive at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"✅ البوت لا يزال يعمل... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
 
 def run_schedule():
     while True:
@@ -54,11 +73,11 @@ def start_scheduler():
 keep_alive()
 
 # جدولة المهام
-schedule.every(ROUND_TIME_MINUTES).minutes.do(run_analysis)
-schedule.every(FOLLOW_UP_MINUTES).minutes.do(follow_up_trades)
-schedule.every(5).minutes.do(print_alive_message)
+schedule.every(4).hours.do(run_analysis)            # كل 4 ساعات تحليل عملات
+schedule.every(2).hours.do(follow_up_trades)         # كل ساعتين متابعة الصفقات
+schedule.every(5).minutes.do(print_alive_message)    # كل 5 دقائق Alive
 
-# بدء الجدولة بشكل منفصل
+# بدء الجدولة
 start_scheduler()
 
 print("✅ البوت بدأ العمل الآن!")
