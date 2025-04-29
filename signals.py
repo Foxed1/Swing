@@ -1,42 +1,32 @@
-# signals.py
-from utils import determine_trend_strength
-from ai_predictor import load_all_models
-from config import SYMBOLS, MIN_AI_CONFIDENCE
-
-ai_models = load_all_models(SYMBOLS)
-
-def check_entry_conditions(data, symbol):
-    if not data:
-        return False
-
-    # 1. فلترة السيولة
-    if data.get("volume", 0) < MIN_VOLUME:
-        return False
-
-    # 2. تنبؤ الذكاء الاصطناعي
-    ai_prediction = ai_models[symbol].predict([[data["EMA50"], data["RSI"]]])[0]
-    ai_confidence = ai_models[symbol].predict_proba([[data["EMA50"], data["RSI"]]])[0][1]
+def check_entry_conditions(data):
+    ma = calculate_moving_averages(data)
+    levels = analyze_levels(data['symbol'])
     
-    if ai_prediction == 0 or ai_confidence < MIN_AI_CONFIDENCE:
-        return False
-
-    # 3. شروط المؤشرات
+    # شروط الدخول المعززة بالمتوسطات
     conditions = [
-        data["EMA50"] > data["EMA200"],
-        data["MACD.macd"] > data["MACD.signal"],
-        40 <= data["RSI"] <= 70,
-        data["ADX"] >= 20,
-        data["summary"]["RECOMMENDATION"] in ["BUY", "STRONG_BUY"]
+        ma['signal'] == 'شراء',
+        data['price'] > ma['ma200'],  # فوق المتوسط الطويل
+        ma['ma9'] > ma['ma21'],       # تقاطع ذهبي
+        any(p in levels['patterns'] for p in ["Hammer", "Bullish Engulfing"]),
+        data['RSI'] > 50              # زخم إيجابي
     ]
+    
     return all(conditions)
 
-def build_trade_message(symbol, data, entry_price, targets):
-    message = (
-        f"🚀 *إشارة ذكية - {symbol}*\n\n"
-        f"• السعر: {entry_price:.4f}\n"
-        f"• الأهداف: {', '.join([f'{t:.4f}' for t in targets])}\n"
-        f"• الثقة: {ai_models[symbol].predict_proba([[data['EMA50'], data['RSI']]])[0][1]:.0%}\n"
-        f"• RSI: {data['RSI']:.1f} | ADX: {data['ADX']:.1f}\n"
-        f"• التقييم: {data['summary']['RECOMMENDATION']}"
-    )
-    return message
+def build_trade_message(symbol, data, levels, targets):
+    ma = calculate_moving_averages(data)
+    msg = [
+        "📈 *إشارة تداول متقدمة*",
+        f"• العملة: {symbol} | السعر: {data['price']:.4f}",
+        f"• الدخول: {targets['entry']:.4f}",
+        f"• الأهداف: {targets['take_profit']:.4f}",
+        f"• وقف الخسارة: {targets['stop_loss']:.4f}",
+        "",
+        "📊 *التحليل الفني:*",
+        f"• المتوسطات: MA9({ma['ma9']:.2f}) > MA21({ma['ma21']:.2f}) > MA50({ma['ma50']:.2f})",
+        f"• الاتجاه: {ma['trend']} | إشارة: {ma['signal']}",
+        f"• Pivot: {levels['pivot']:.2f} | R1: {levels['r1']:.2f}",
+        f"• أنماط الشموع: {', '.join(levels['patterns'])}",
+        f"• RSI: {data['RSI']:.1f} | ADX: {data['ADX']:.1f}"
+    ]
+    return "\n".join(msg)
