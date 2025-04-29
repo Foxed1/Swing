@@ -1,6 +1,0 @@
-numpy>=1.25.2
-requests>=2.31.0
-schedule>=1.2.0
-tradingview_ta>=3.0.0
-flask>=2.3.2
-python-binance>=1.0.19
