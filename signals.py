@@ -1,37 +1,42 @@
 # signals.py
-
 from utils import determine_trend_strength
+from ai_predictor import load_all_models
+from config import SYMBOLS, MIN_AI_CONFIDENCE
 
-def check_entry_conditions(data):
+ai_models = load_all_models(SYMBOLS)
+
+def check_entry_conditions(data, symbol):
     if not data:
         return False
 
-    if data["EMA50"] and data["EMA200"]:
-        if data["EMA50"] < data["EMA200"]:
-            return False
-
-    if data["MACD.macd"] and data["MACD.signal"]:
-        if data["MACD.macd"] < data["MACD.signal"]:
-            return False
-
-    if data["RSI"] is not None and not (40 <= data["RSI"] <= 65):
+    # 1. فلترة السيولة
+    if data.get("volume", 0) < MIN_VOLUME:
         return False
 
-    if data["ADX"] is not None and data["ADX"] < 20:
+    # 2. تنبؤ الذكاء الاصطناعي
+    ai_prediction = ai_models[symbol].predict([[data["EMA50"], data["RSI"]]])[0]
+    ai_confidence = ai_models[symbol].predict_proba([[data["EMA50"], data["RSI"]]])[0][1]
+    
+    if ai_prediction == 0 or ai_confidence < MIN_AI_CONFIDENCE:
         return False
 
-    if data["summary"]["RECOMMENDATION"] not in ["BUY", "STRONG_BUY"]:
-        return False
+    # 3. شروط المؤشرات
+    conditions = [
+        data["EMA50"] > data["EMA200"],
+        data["MACD.macd"] > data["MACD.signal"],
+        40 <= data["RSI"] <= 70,
+        data["ADX"] >= 20,
+        data["summary"]["RECOMMENDATION"] in ["BUY", "STRONG_BUY"]
+    ]
+    return all(conditions)
 
-    return True
-
-def build_trade_message(symbol, data, entry_price, target_price, stop_price):
-    trend_strength = determine_trend_strength(data["ADX"])
-    message = f"🚀 *فرصة شراء* على {symbol}\n\n"
-    message += f"*سعر الدخول:* {entry_price}\n"
-    message += f"*الهدف المتوقع:* {target_price}\n"
-    message += f"*وقف الخسارة:* {stop_price}\n\n"
-    message += f"*RSI:* {round(data['RSI'],2)}\n"
-    message += f"*ADX:* {round(data['ADX'],2)} ({trend_strength})\n"
-    message += f"*تقييم TradingView:* {data['summary']['RECOMMENDATION']}\n"
+def build_trade_message(symbol, data, entry_price, targets):
+    message = (
+        f"🚀 *إشارة ذكية - {symbol}*\n\n"
+        f"• السعر: {entry_price:.4f}\n"
+        f"• الأهداف: {', '.join([f'{t:.4f}' for t in targets])}\n"
+        f"• الثقة: {ai_models[symbol].predict_proba([[data['EMA50'], data['RSI']]])[0][1]:.0%}\n"
+        f"• RSI: {data['RSI']:.1f} | ADX: {data['ADX']:.1f}\n"
+        f"• التقييم: {data['summary']['RECOMMENDATION']}"
+    )
     return message
