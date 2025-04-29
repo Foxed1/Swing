@@ -1,29 +1,29 @@
 # trades_manager.py
-
 import json
 import os
 
-TRADES_FILE = "open_trades.json"
+TRADES_FILE = "trades_v2.json"
 
-def save_trade(symbol, entry_price, target_price, stop_price):
+def save_trade(symbol, entry_price, targets, stop_loss):
     trades = load_trades()
     trades.append({
         "symbol": symbol,
         "entry_price": entry_price,
-        "target_price": target_price,
-        "stop_price": stop_price
+        "targets": targets,
+        "stop_loss": stop_loss,
+        "partial_taken": False,
+        "opened_at": int(time.time())
     })
-    with open(TRADES_FILE, "w") as f:
-        json.dump(trades, f, indent=4)
+    with open(TRADES_FILE, 'w') as f:
+        json.dump(trades, f, indent=2)
 
 def load_trades():
     if not os.path.exists(TRADES_FILE):
         return []
-    with open(TRADES_FILE, "r") as f:
+    with open(TRADES_FILE) as f:
         return json.load(f)
 
 def remove_trade(symbol):
-    trades = load_trades()
-    trades = [t for t in trades if t["symbol"] != symbol]
-    with open(TRADES_FILE, "w") as f:
-        json.dump(trades, f, indent=4)
+    trades = [t for t in load_trades() if t["symbol"] != symbol]
+    with open(TRADES_FILE, 'w') as f:
+        json.dump(trades, f, indent=2)
