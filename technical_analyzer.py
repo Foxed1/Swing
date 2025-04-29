@@ -4,7 +4,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 def calculate_moving_averages(data):
-    """حساب المتوسطات المتحركة مع معالجة الأخطاء"""
+    if not data or 'close' not in data:
+        logger.error("❌ بيانات غير صالحة لحساب المتوسطات")
+        return {
+            'ma9': 0,
+            'ma21': 0,
+            'ma50': 0,
+            'ma200': 0,
+            'trend': 'غير محدد',
+            'signal': 'انتظار'
+        }
+    
     try:
         closes = np.array(data['close'])
         ma_values = {
@@ -20,8 +30,15 @@ def calculate_moving_averages(data):
         return {
             **ma_values,
             'trend': 'صاعد' if golden_cross else 'هابط' if death_cross else 'جانبي',
-            'signal': 'شراء' if golden_cross and closes[-1] > ma_values['ma200'] else 'بيع'
+            'signal': 'شراء' if golden_cross and data['price'] > ma_values['ma200'] else 'بيع'
         }
     except Exception as e:
         logger.error(f"❌ فشل حساب المتوسطات: {e}")
-        return None
+        return {
+            'ma9': 0,
+            'ma21': 0,
+            'ma50': 0,
+            'ma200': 0,
+            'trend': 'خطأ',
+            'signal': 'انتظار'
+        }
