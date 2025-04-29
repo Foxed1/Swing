@@ -1,5 +1,4 @@
 # config.py
-
 TELEGRAM_TOKEN = "7856358847:AAE3t_G9S5UXO1_I88uo1d88jMW7NRhQMx4"
 CHAT_ID = "-1002667517368"
 
@@ -14,6 +13,14 @@ SYMBOLS = [
     "OCEANUSDT", "HIGHUSDT", "MAGICUSDT", "HOOKUSDT", "VELODROMEUSDT"
 ]
 
+# إعدادات الذكاء الاصطناعي
+AI_ENABLED = True
+MIN_AI_CONFIDENCE = 0.65  # 65% ثقة كحد أدنى
+
+# إعدادات المخاطرة
+RISK_PERCENT = 1.2  # 1.2% مخاطرة لكل صفقة
+MIN_VOLUME = 2_000_000  # 2 مليون دولار حد أدنى للسيولة
+
 TIMEFRAME = "4h"
-ROUND_TIME_MINUTES = 240
-FOLLOW_UP_MINUTES = 120
+ROUND_TIME_MINUTES = 240  # كل 4 ساعات
+FOLLOW_UP_MINUTES = 30  # متابعة الصفقات كل 30 دقيقة
