@@ -15,35 +15,27 @@ def analyze_levels(symbol):
     }
 
 def check_entry_conditions(data, symbol):
+    if not data:
+        logger.warning(f"⚠️ لا يوجد بيانات لـ {symbol}")
+        return False
+        
     try:
         ma = calculate_moving_averages(data)
-        levels = analyze_levels(symbol)  # سيتم استخدام الدالة الجديدة
+        if not ma:
+            return False
+            
+        levels = analyze_levels(symbol)
         
         conditions = [
-            ma.get('signal') == 'شراء',
-            data.get('price', 0) > ma.get('ma200', 0),
-            ma.get('ma9', 0) > ma.get('ma21', 0),
+            ma.get('signal', 'انتظار') == 'شراء',
+            float(data.get('price', 0)) > float(ma.get('ma200', 0)),
+            float(ma.get('ma9', 0)) > float(ma.get('ma21', 0)),
             any(p in levels.get('patterns', []) for p in ["Hammer", "Bullish Engulfing"]),
-            data.get('RSI', 0) > 50
+            float(data.get('RSI', 0)) > 50
         ]
         
-        logger.info(f"📊 تحليل {symbol}: شروط الدخول -> {conditions}")
+        logger.info(f"📊 تحليل {symbol}: الشروط -> {conditions}")
         return all(conditions)
     except Exception as e:
-        logger.error(f"🔥 خطأ في تحليل الشروط: {e}")
+        logger.error(f"🔥 خطأ في شروط الدخول: {e}")
         return False
-
-def build_trade_message(symbol, data, entry_price, targets):
-    try:
-        ma = calculate_moving_averages(data)
-        msg = [
-            f"📈 *إشارة تداول*: {symbol}",
-            f"💰 السعر: {data.get('price', 0):.4f} | الدخول: {entry_price:.4f}",
-            f"🎯 الأهداف: {', '.join(map(str, targets))}",
-            f"🛑 وقف الخسارة: {targets.get('stop_loss', 0):.4f}",
-            f"📊 RSI: {data.get('RSI', 0):.1f} | ADX: {data.get('ADX', 0):.1f}"
-        ]
-        return "\n".join(msg)
-    except Exception as e:
-        logger.error(f"🔥 خطأ في بناء الرسالة: {e}")
-        return "⚠️ تعذر إنشاء تفاصيل الصفقة"
